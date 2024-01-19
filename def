@@ -1,0 +1,63 @@
+import dash
+from dash import html, dcc, dash_table
+from dash.dependencies import Input, Output, State
+import dash_bootstrap_components as dbc
+import pymysql
+import pandas as pd
+
+# Establish a connection to the SQL server
+conn = pymysql.connect(
+    host='your_host', 
+    user='your_username', 
+    password='your_password', 
+    db='your_dbname'
+)
+
+# Initialize Dash app
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+app.layout = html.Div([
+    html.H3("Table 1"),
+    dash_table.DataTable(
+        id='table-1',
+        columns=[{"name": i, "id": i} for i in ["Column A", "Column B"]],
+        data=[{"Column A": "", "Column B": ""} for _ in range(5)],
+        editable=True
+    ),
+    html.H3("Table 2"),
+    dash_table.DataTable(
+        id='table-2',
+        columns=[{"name": i, "id": i} for i in ["Column C", "Column D"]],
+        data=[{"Column C": "", "Column D": ""} for _ in range(5)],
+        editable=True
+    ),
+    dbc.Button("Submit", id="submit-button", color="primary"),
+    html.Div(id="output")
+])
+
+@app.callback(
+    Output("output", "children"),
+    Input("submit-button", "n_clicks"),
+    State("table-1", "data"),
+    State("table-2", "data"),
+)
+def update_output(n_clicks, table1_data, table2_data):
+    if n_clicks:
+        df1 = pd.DataFrame(table1_data)
+        df2 = pd.DataFrame(table2_data)
+
+        # Merge the dataframes (adjust logic as needed)
+        merged_df = pd.concat([df1, df2], axis=1)
+
+        # Logic to insert data into SQL database
+        with conn.cursor() as cursor:
+            for _, row in merged_df.iterrows():
+                sql = "INSERT INTO your_table_name (ColumnA, ColumnB, ColumnC, ColumnD) VALUES (%s, %s, %s, %s)"
+                cursor.execute(sql, (row['Column A'], row['Column B'], row['Column C'], row['Column D']))
+            conn.commit()
+
+        return "Data submitted successfully"
+    return "No data submitted"
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
